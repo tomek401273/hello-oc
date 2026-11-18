@@ -1,0 +1,58 @@
+name: Deploy to OpenShift
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Nie uruchamiaj dwóch wdrożeń naraz — nowszy push czeka na starszy.
+concurrency:
+  group: openshift-deploy
+  cancel-in-progress: false
+
+env:
+  APP_NAME: hello-logic
+  OC_URL: https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install oc
+        run: |
+          curl -sSL "$OC_URL" | tar -xz -C /usr/local/bin oc
+          oc version --client
+
+      - name: Log in to OpenShift
+        run: |
+          oc login --token="${{ secrets.OPENSHIFT_TOKEN }}" \
+                   --server="${{ secrets.OPENSHIFT_SERVER }}"
+          oc project "${{ secrets.OPENSHIFT_NAMESPACE }}"
+
+      # Sposób 2: build z Dockerfile na klastrze (BuildConfig typu docker, binary input)
+      - name: Ensure BuildConfig exists
+        run: |
+          oc get bc/$APP_NAME >/dev/null 2>&1 || \
+            oc new-build --binary --name=$APP_NAME --strategy=docker
+
+      - name: Build image on cluster
+        run: oc start-build $APP_NAME --from-dir=. --follow --wait
+
+      - name: Deploy
+        run: |
+          oc apply -f openshift/deployment.yaml
+          oc rollout restart deployment/$APP_NAME
+          oc rollout status deployment/$APP_NAME --timeout=300s
+
+      - name: Smoke test
+        run: |
+          HOST=$(oc get route $APP_NAME -o jsonpath='{.spec.host}')
+          for i in $(seq 1 12); do
+            BODY=$(curl -s "https://$HOST/actuator/health" || true)
+            echo "$BODY" | grep -q '"status":"UP"' && { echo "OK: $BODY"; curl -s "https://$HOST/"; exit 0; }
+            sleep 5
+          done
+          echo "Aplikacja nie odpowiada poprawnie: $BODY"; exit 1
