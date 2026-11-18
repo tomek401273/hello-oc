@@ -15,12 +15,18 @@ curl http://localhost:8080/
 
 ## Wdrożenie na OpenShift
 
-Zaloguj się i utwórz projekt:
+Zaloguj się (polecenie z tokenem: konsola → nazwa użytkownika → **Copy login command**):
 
 ```bash
-oc login <adres-klastra>
-oc new-project hello-logic
+oc login --token=<token> --server=<adres-api-klastra>
+oc project -q   # aktualny projekt (namespace)
 ```
+
+Manifest `openshift/deployment.yaml` jest ustawiony na namespace Developer Sandbox
+`tomek371240-dev`. W Sandbox nie można tworzyć nowych projektów — wdrażasz do
+istniejącego `<użytkownik>-dev`. Na własnym klastrze możesz utworzyć projekt
+(`oc new-project hello-logic`), ale wtedy podmień namespace w polu `image`
+w `openshift/deployment.yaml`.
 
 ### Sposób 1 (najprostszy): S2I — OpenShift buduje sam z kodu źródłowego
 
@@ -33,12 +39,20 @@ oc new-app hello-logic
 oc create route edge --service=hello-logic
 ```
 
-### Sposób 2: build z Dockerfile na klastrze
+### Sposób 2 (zalecany): build z Dockerfile na klastrze
 
 ```bash
-oc new-build --binary --name=hello-logic --strategy=docker
+oc new-build --binary --name=hello-logic --strategy=docker   # tylko za pierwszym razem
 oc start-build hello-logic --from-dir=. --follow
 oc apply -f openshift/deployment.yaml
+oc rollout status deployment/hello-logic
+```
+
+Po zmianie kodu:
+
+```bash
+oc start-build hello-logic --from-dir=. --follow
+oc rollout restart deployment/hello-logic
 ```
 
 ### Sposób 3: build lokalny (podman/docker) + push do rejestru
@@ -63,4 +77,12 @@ Aplikacja wystawia sondy dla OpenShift (skonfigurowane w `openshift/deployment.y
 
 - liveness: `/actuator/health/liveness`
 - readiness: `/actuator/health/readiness`
-# hello-oc
+
+## Przydatne polecenia
+
+```bash
+oc get pods                        # stan podów
+oc logs -f deployment/hello-logic  # logi aplikacji
+oc delete all -l app=hello-logic   # usunięcie Deployment/Service/Route
+oc delete all -l build=hello-logic # usunięcie BuildConfig/ImageStream
+```
