@@ -14,6 +14,7 @@ class SpockController {
     public String hello() {
         Random random = new Random();
         Integer randomInt = random.nextInt(100);
-        return randomInt+ " logic, logic, logic!";
+        System.out.println(randomInt + " logic, logic, logic!");
+        return randomInt + " logic, logic, logic!";
     }
 }
