@@ -86,3 +86,7 @@ oc logs -f deployment/hello-logic  # logi aplikacji
 oc delete all -l app=hello-logic   # usunięcie Deployment/Service/Route
 oc delete all -l build=hello-logic # usunięcie BuildConfig/ImageStream
 ```
+
+## CI/CD
+
+Automatyczne wdrożenie po pushu na `main` (GitHub Actions → OpenShift): [docs/github-actions-openshift.md](docs/github-actions-openshift.md)
