@@ -20,7 +20,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      - name: Tomek-test
+        run: |
+          echo "test"
+          echo "APP_NAME: $APP_NAME"
       - name: Install oc
         run: |
           curl -sSL "$OC_URL" | tar -xz -C /usr/local/bin oc
